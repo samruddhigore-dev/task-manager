@@ -1,27 +1,50 @@
 import tkinter as tk
 from tkinter import messagebox
-from datetime import datetime
+import sqlite3
 
-# ---------------- FUNCTIONS ---------------- #
+# -DATABASE- #
+conn = sqlite3.connect("tasks.db")
+cursor = conn.cursor()
 
-def add_task():
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task TEXT
+)
+""")
+conn.commit()
+
+# -FUNCTIONS- #
+
+def format_task():
     task = entry.get().strip()
     priority = priority_var.get()
     deadline = deadline_entry.get().strip()
 
     if task == "":
         messagebox.showwarning("Warning", "Please enter a task!")
-        return
+        return None
 
-    task_text = f"{task} | {priority} | {deadline}"
-    listbox.insert(tk.END, task_text)
+    return f"{task} | {priority} | {deadline}"
 
-    entry.delete(0, tk.END)
-    deadline_entry.delete(0, tk.END)
+def add_task():
+    task_text = format_task()
+    if task_text:
+        cursor.execute("INSERT INTO tasks (task) VALUES (?)", (task_text,))
+        conn.commit()
+
+        listbox.insert(tk.END, task_text)
+        entry.delete(0, tk.END)
+        deadline_entry.delete(0, tk.END)
 
 def delete_task():
     try:
         selected = listbox.curselection()[0]
+        task = listbox.get(selected)
+
+        cursor.execute("DELETE FROM tasks WHERE task=?", (task,))
+        conn.commit()
+
         listbox.delete(selected)
     except:
         messagebox.showwarning("Warning", "Select a task to delete!")
@@ -30,32 +53,35 @@ def mark_complete():
     try:
         selected = listbox.curselection()[0]
         task = listbox.get(selected)
+
         listbox.delete(selected)
 
         if not task.startswith("✔ "):
-            listbox.insert(tk.END, "✔ " + task)
+            updated = "✔ " + task
         else:
-            listbox.insert(tk.END, task)
+            updated = task
 
+        cursor.execute("UPDATE tasks SET task=? WHERE task=?", (updated, task))
+        conn.commit()
+
+        listbox.insert(selected, updated)
     except:
         messagebox.showwarning("Warning", "Select a task!")
 
 def edit_task():
     try:
         selected = listbox.curselection()[0]
-        new_task = entry.get().strip()
+        old_task = listbox.get(selected)
 
-        if new_task == "":
-            messagebox.showwarning("Warning", "Enter new task!")
+        new_task = format_task()
+        if not new_task:
             return
 
-        priority = priority_var.get()
-        deadline = deadline_entry.get().strip()
-
-        updated = f"{new_task} | {priority} | {deadline}"
+        cursor.execute("UPDATE tasks SET task=? WHERE task=?", (new_task, old_task))
+        conn.commit()
 
         listbox.delete(selected)
-        listbox.insert(selected, updated)
+        listbox.insert(selected, new_task)
 
         entry.delete(0, tk.END)
         deadline_entry.delete(0, tk.END)
@@ -69,7 +95,6 @@ root = tk.Tk()
 root.title("Task Manager")
 root.geometry("450x600")
 root.resizable(False, False)
-
 root.configure(bg="#1e1e2f")
 
 # Title
@@ -82,12 +107,12 @@ entry = tk.Entry(root, width=35, font=("Arial", 12),
                  bg="#2e2e3f", fg="white", insertbackground="white")
 entry.pack(pady=5)
 
-# Priority dropdown
+# Priority
 priority_var = tk.StringVar(value="Medium")
 priority_menu = tk.OptionMenu(root, priority_var, "High", "Medium", "Low")
 priority_menu.pack(pady=5)
 
-# Deadline input
+# Deadline
 deadline_entry = tk.Entry(root, width=35, font=("Arial", 12))
 deadline_entry.insert(0, "Deadline (YYYY-MM-DD)")
 deadline_entry.pack(pady=5)
@@ -112,4 +137,15 @@ listbox = tk.Listbox(root, width=50, height=15,
                      selectbackground="#6a5acd")
 listbox.pack(pady=20)
 
+# ---------------- LOAD DATA ---------------- #
+cursor.execute("SELECT task FROM tasks")
+rows = cursor.fetchall()
+
+for row in rows:
+    listbox.insert(tk.END, row[0])
+
+# Run app
 root.mainloop()
+
+# Close DB on exit
+conn.close()
