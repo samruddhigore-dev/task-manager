@@ -3,10 +3,12 @@
 A simple and clean desktop Task Manager built using Python and Tkinter.
 
 ## 🚀 Features
-- Add tasks
-- Delete tasks
+- Add, edit, and delete tasks
 - Mark tasks as completed
-- Dark themed UI
+- Set priority (High / Medium / Low)
+- Add deadlines to tasks
+- Persistent storage using SQLite
+- Clean dark themed UI
 
 ## 🛠️ Tech Stack
 - Python
